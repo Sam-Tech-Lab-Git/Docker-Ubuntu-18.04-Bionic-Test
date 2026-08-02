@@ -80,7 +80,8 @@ A **minimal, hardened, multi-architecture Ubuntu 18.04 LTS (Bionic) base image**
 `FROM scratch` from the **official Ubuntu OCI rootfs** — for authenticity, small size and
 reproducibility.
 
-It is designed as a **foundation for your own images**: a clean Ubuntu userland, a non-root user,
+It is designed as a **foundation for your own images**: a complete Ubuntu system (without a kernel — containers
+share the host's), a non-root user,
 and a hardened system baseline — then it gets out of your way.
 
 > **Supported architectures:** `linux/amd64`, `linux/arm64`
@@ -370,9 +371,8 @@ Same cause — PID 1 is not reaping children. Use `--init`.
 - **Vulnerabilities are scanned weekly** (Mondays, 04:00 UTC) and after every successful build,
   with Trivy. Results go to the repository's **Security → Code scanning** tab; full JSON reports
   are kept as build artifacts for 90 days.
-- **The Dockerfile is linted** with hadolint before every build. Note that the build workflow
-  runs on pushes to `main` touching `Dockerfile-multi-arch`, on the monthly schedule, or on
-  manual dispatch — **not on pull requests**, so a PR showing no CI activity is expected.
+- **The Dockerfile is linted** with hadolint on every pull request and before every build.
+  Pull requests run the lint job only — they never build or publish an image.
 
 Source: [`Dockerfile-multi-arch`](./Dockerfile-multi-arch).
 Contributions are welcome: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the
@@ -423,7 +423,8 @@ Une **image de base Ubuntu 18.04 LTS (Bionic) minimale, durcie et multi-architec
 `FROM scratch` à partir du **rootfs OCI officiel d'Ubuntu** — pour l'authenticité, la légèreté et
 la reproductibilité.
 
-Elle est conçue comme une **fondation pour vos propres images** : un userland Ubuntu propre, un
+Elle est conçue comme une **fondation pour vos propres images** : un système Ubuntu complet (sans noyau — les conteneurs
+partagent celui de l'hôte), un
 utilisateur non-root, un socle système durci — puis elle vous laisse travailler.
 
 > **Architectures supportées :** `linux/amd64`, `linux/arm64`
@@ -722,10 +723,8 @@ Même cause : le PID 1 ne récupère pas ses fils. Utilisez `--init`.
 - **Les vulnérabilités sont scannées chaque semaine** (lundi, 04h00 UTC) et après chaque build
   réussi, avec Trivy. Les résultats sont dans l'onglet **Security → Code scanning** du dépôt ;
   les rapports JSON complets sont conservés 90 jours en artefacts de build.
-- **Le Dockerfile est analysé** par hadolint avant chaque build. Notez que le workflow de build
-  se déclenche sur un push vers `main` touchant `Dockerfile-multi-arch`, sur la planification
-  mensuelle, ou manuellement — **pas sur les pull requests** : l'absence de CI sur une PR est
-  donc normale.
+- **Le Dockerfile est analysé** par hadolint à chaque pull request et avant chaque build. Les
+  pull requests n'exécutent que le job de lint : elles ne construisent ni ne publient d'image.
 
 Source : [`Dockerfile-multi-arch`](./Dockerfile-multi-arch).
 Les contributions sont bienvenues : voir [`CONTRIBUTING.md`](./CONTRIBUTING.md) et le
