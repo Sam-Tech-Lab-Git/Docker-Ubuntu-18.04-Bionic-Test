@@ -33,7 +33,7 @@ Open an issue describing:
 
 ## CI on pull requests
 
-- `build-multi-arch.yml` only builds and pushes on a push to `main` (path-filtered to `Dockerfile-multi-arch`) or via manual dispatch — **it does not run on pull requests**, so a PR with no CI activity is expected. Test locally first (see step 3–4 above).
+- `build-multi-arch.yml` runs its **lint job on every pull request**, so a PR that changes the Dockerfile or a workflow gets checked before merge. It only **builds and pushes** on a push to `main` (path-filtered to `Dockerfile-multi-arch`), on the monthly schedule, or via manual dispatch — never from a pull request.
 - `vuln-scan.yml` scans the published image weekly and after successful builds — it isn't part of PR review either.
 
 ## Style
@@ -80,7 +80,7 @@ Ouvrez une issue en précisant :
 
 ### CI sur les pull requests
 
-- `build-multi-arch.yml` ne build/push que sur un push vers `main` (filtré sur `Dockerfile-multi-arch`) ou via déclenchement manuel — **il ne tourne pas sur les pull requests**, donc l'absence de CI sur une PR est normale. Testez localement d'abord (voir étapes 3–4 ci-dessus).
+- `build-multi-arch.yml` exécute son **job de lint sur chaque pull request** : une PR modifiant le Dockerfile ou un workflow est donc vérifiée avant merge. Il ne **build et ne publie** que sur un push vers `main` (filtré sur `Dockerfile-multi-arch`), sur la planification mensuelle, ou via déclenchement manuel — jamais depuis une pull request.
 - `vuln-scan.yml` scanne l'image publiée chaque semaine et après un build réussi — il ne fait pas non plus partie de la revue de PR.
 
 ### Style

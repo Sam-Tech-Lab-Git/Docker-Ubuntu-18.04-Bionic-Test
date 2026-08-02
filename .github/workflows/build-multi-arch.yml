@@ -5,6 +5,12 @@ on:
     branches: [ main ]
     paths:
       - 'Dockerfile-multi-arch'
+  # Les PR ne construisent ni ne publient d'image : elles font tourner
+  # les jobs de validation. Sans cela, une PR ne touchant que
+  # .github/workflows/** (typiquement Dependabot) serait mergeable sans
+  # qu'aucune CI n'ait validé les nouvelles versions d'actions.
+  pull_request:
+    branches: [ main ]
   schedule:
     - cron: "0 3 1 * *" # chaque 1er du mois à 03h00 UTC
   workflow_dispatch:
@@ -34,6 +40,8 @@ jobs:
 
   build-multi-arch:
     needs: lint
+    # Ne jamais publier depuis une PR.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
