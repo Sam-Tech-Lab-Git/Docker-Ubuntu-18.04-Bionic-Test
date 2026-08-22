@@ -27,14 +27,14 @@
   <a href="https://github.com/Sam-Tech-Lab-Git" target="_blank">
     <img src="https://img.shields.io/static/v1?label=SamTechLab&message=GitHub&color=94398d&labelColor=555555&style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/>
   </a>
-  <a href="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic/blob/main/LICENSE" target="_blank">
+  <a href="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic-Test/blob/main/LICENSE" target="_blank">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License: MIT"/>
   </a>
-  <a href="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic/actions/workflows/build-multi-arch.yml" target="_blank">
-      <img src="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic/actions/workflows/build-multi-arch.yml/badge.svg" alt="Build multi-arch"/>
+  <a href="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic-Test/actions/workflows/build-multi-arch.yml" target="_blank">
+      <img src="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic-Test/actions/workflows/build-multi-arch.yml/badge.svg" alt="Build multi-arch"/>
   </a>
-  <a href="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic/actions/workflows/vuln-scan.yml" target="_blank">
-      <img src="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic/actions/workflows/vuln-scan.yml/badge.svg" alt="Vulnerability Scan"/>
+  <a href="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic-Test/actions/workflows/vuln-scan.yml" target="_blank">
+      <img src="https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic-Test/actions/workflows/vuln-scan.yml/badge.svg" alt="Vulnerability Scan"/>
   </a>
 </p>
 
