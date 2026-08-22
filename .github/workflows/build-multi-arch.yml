@@ -22,8 +22,8 @@ concurrency:
 env:
   # GHCR exige un chemin en minuscules ; github.repository_owner ne l'est
   # pas, d'où la valeur littérale.
-  GHCR_IMAGE: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic
-  DOCKERHUB_IMAGE: samtechlab/ubuntu-18.04-bionic
+  GHCR_IMAGE: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test
+  DOCKERHUB_IMAGE: samtechlab/ubuntu-18.04-bionic-test
 
 jobs:
   lint:
