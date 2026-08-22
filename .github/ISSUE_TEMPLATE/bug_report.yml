@@ -47,7 +47,7 @@ body:
       description: >-
         Tag ou digest. Le digest est préférable — les tags `latest` et
         `YYYY.MM` sont republiés.
-      placeholder: "ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic@sha256:..."
+      placeholder: "ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test@sha256:..."
 
   - type: dropdown
     id: arch

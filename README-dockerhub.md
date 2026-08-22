@@ -41,10 +41,10 @@ Tags point at a multi-architecture manifest; Docker selects the right image for 
 that month republishes it. For a genuinely fixed image, pin by digest:
 
 ```bash
-docker pull samtechlab/ubuntu-18.04-bionic@sha256:<digest>
+docker pull samtechlab/ubuntu-18.04-bionic-test@sha256:<digest>
 ```
 
-Also published on GHCR as `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic`.
+Also published on GHCR as `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test`.
 
 ---
 
@@ -52,17 +52,17 @@ Also published on GHCR as `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic`.
 
 ```bash
 # Shell as the unprivileged appuser
-docker run -it --rm samtechlab/ubuntu-18.04-bionic:latest
+docker run -it --rm samtechlab/ubuntu-18.04-bionic-test:latest
 
 # Check who you are
-docker run --rm samtechlab/ubuntu-18.04-bionic:latest id
+docker run --rm samtechlab/ubuntu-18.04-bionic-test:latest id
 ```
 
 Build on top of it. The image ends with `USER appuser`, so switch to root to install, then switch
 back:
 
 ```dockerfile
-FROM samtechlab/ubuntu-18.04-bionic:latest
+FROM samtechlab/ubuntu-18.04-bionic-test:latest
 
 USER root
 RUN apt-get update && \
@@ -83,13 +83,13 @@ handle signals itself. A process that does neither leaves zombies behind, or ign
 If your process is not designed for that role, let Docker supply a minimal init:
 
 ```bash
-docker run --init samtechlab/ubuntu-18.04-bionic:latest your-command
+docker run --init samtechlab/ubuntu-18.04-bionic-test:latest your-command
 ```
 
 ```yaml
 services:
   app:
-    image: samtechlab/ubuntu-18.04-bionic:latest
+    image: samtechlab/ubuntu-18.04-bionic-test:latest
     init: true
 ```
 
@@ -170,7 +170,7 @@ Recommended runtime hardening:
 ```yaml
 services:
   app:
-    image: samtechlab/ubuntu-18.04-bionic:latest
+    image: samtechlab/ubuntu-18.04-bionic-test:latest
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -263,10 +263,10 @@ Les tags pointent vers un manifeste multi-architecture : Docker sélectionne l'i
 tout build de ce mois-là le republie. Pour une image réellement figée, épinglez par digest :
 
 ```bash
-docker pull samtechlab/ubuntu-18.04-bionic@sha256:<digest>
+docker pull samtechlab/ubuntu-18.04-bionic-test@sha256:<digest>
 ```
 
-Également publiée sur GHCR : `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic`.
+Également publiée sur GHCR : `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test`.
 
 ---
 
@@ -274,17 +274,17 @@ docker pull samtechlab/ubuntu-18.04-bionic@sha256:<digest>
 
 ```bash
 # Shell en tant qu'appuser, non privilégié
-docker run -it --rm samtechlab/ubuntu-18.04-bionic:latest
+docker run -it --rm samtechlab/ubuntu-18.04-bionic-test:latest
 
 # Vérifier l'utilisateur effectif
-docker run --rm samtechlab/ubuntu-18.04-bionic:latest id
+docker run --rm samtechlab/ubuntu-18.04-bionic-test:latest id
 ```
 
 Construire par-dessus. L'image se termine par `USER appuser` : repassez en root pour installer,
 puis redescendez :
 
 ```dockerfile
-FROM samtechlab/ubuntu-18.04-bionic:latest
+FROM samtechlab/ubuntu-18.04-bionic-test:latest
 
 USER root
 RUN apt-get update && \
@@ -306,13 +306,13 @@ attendre son délai avant de le tuer.
 Si votre processus n'est pas conçu pour ce rôle, laissez Docker fournir un init minimal :
 
 ```bash
-docker run --init samtechlab/ubuntu-18.04-bionic:latest votre-commande
+docker run --init samtechlab/ubuntu-18.04-bionic-test:latest votre-commande
 ```
 
 ```yaml
 services:
   app:
-    image: samtechlab/ubuntu-18.04-bionic:latest
+    image: samtechlab/ubuntu-18.04-bionic-test:latest
     init: true
 ```
 
@@ -398,7 +398,7 @@ Durcissement recommandé à l'exécution :
 ```yaml
 services:
   app:
-    image: samtechlab/ubuntu-18.04-bionic:latest
+    image: samtechlab/ubuntu-18.04-bionic-test:latest
     security_opt:
       - no-new-privileges:true
     cap_drop:

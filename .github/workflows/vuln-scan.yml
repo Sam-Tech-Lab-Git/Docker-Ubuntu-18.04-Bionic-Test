@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic
+  IMAGE: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test
 
 jobs:
   scan:
