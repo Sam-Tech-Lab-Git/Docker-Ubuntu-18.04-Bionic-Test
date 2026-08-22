@@ -44,6 +44,20 @@ jobs:
           dockerfile: Dockerfile-multi-arch
           failure-threshold: error
 
+      # Doublon volontaire du test présent dans le workflow de
+      # synchronisation : celui-ci tourne sur les pull requests, donc le
+      # dépassement est détecté avant le merge et non au moment de publier.
+      # On mesure en octets, pas en caractères — les accents comptent
+      # double en UTF-8.
+      - name: La description Docker Hub tient sous la limite
+        run: |
+          LIMIT=25000
+          SIZE=$(wc -c < README-dockerhub.md)
+          echo "README-dockerhub.md : ${SIZE} octets (limite ${LIMIT})"
+          if [ "${SIZE}" -gt "${LIMIT}" ]; then
+            echo "::error::README-dockerhub.md dépasse la limite Docker Hub de $((SIZE - LIMIT)) octets."
+            exit 1
+          fi
 
   test:
     name: Test d'intégration (${{ matrix.arch }})
@@ -327,11 +341,3 @@ jobs:
             exit 1
           fi
           echo "Aucun label encadré de guillemets."
-
-      - name: Sync README to Docker Hub
-        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: samtechlab/ubuntu-18.04-bionic
-          readme-filepath: ./README.md
