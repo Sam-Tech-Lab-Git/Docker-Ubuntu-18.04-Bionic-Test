@@ -9,7 +9,7 @@
       </a>
     </td>
     <td align="center" width="50%">
-      <a href="https://hub.docker.com/r/samtechlab/ubuntu-18.04-bionic" target="_blank">
+      <a href="https://hub.docker.com/r/samtechlab/ubuntu-18.04-bionic-test" target="_blank">
         <img src="https://upload.wikimedia.org/wikipedia/commons/7/76/Ubuntu-logo-2022.svg?sanitize=true"
              alt="Ubuntu Logo" width="180"/>
       </a>
@@ -18,11 +18,11 @@
 </table>
 
 <p align="center">
-  <a href="https://hub.docker.com/r/samtechlab/ubuntu-18.04-bionic" target="_blank">
-    <img src="https://img.shields.io/docker/pulls/samtechlab/ubuntu-18.04-bionic.svg?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Pulls"/>
+  <a href="https://hub.docker.com/r/samtechlab/ubuntu-18.04-bionic-test" target="_blank">
+    <img src="https://img.shields.io/docker/pulls/samtechlab/ubuntu-18.04-bionic-test.svg?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Pulls"/>
   </a>
-  <a href="https://hub.docker.com/r/samtechlab/ubuntu-18.04-bionic" target="_blank">
-    <img src="https://img.shields.io/docker/stars/samtechlab/ubuntu-18.04-bionic.svg?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Stars"/>
+  <a href="https://hub.docker.com/r/samtechlab/ubuntu-18.04-bionic-test" target="_blank">
+    <img src="https://img.shields.io/docker/stars/samtechlab/ubuntu-18.04-bionic-test.svg?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Stars"/>
   </a>
   <a href="https://github.com/Sam-Tech-Lab-Git" target="_blank">
     <img src="https://img.shields.io/static/v1?label=SamTechLab&message=GitHub&color=94398d&labelColor=555555&style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/>
@@ -48,16 +48,16 @@
 
 ```bash
 # Run a shell (as the unprivileged appuser)
-docker run -it --rm ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+docker run -it --rm ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 
 # Or from Docker Hub
-docker run -it --rm samtechlab/ubuntu-18.04-bionic:latest
+docker run -it --rm samtechlab/ubuntu-18.04-bionic-test:latest
 ```
 
 Build on top of it:
 
 ```dockerfile
-FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 
 # The image runs as appuser; switch to root to install, then switch back.
 USER root
@@ -111,10 +111,10 @@ and a hardened system baseline — then it gets out of your way.
 
 | Registry | Image | Architectures |
 |---|---|---|
-| Docker Hub | `samtechlab/ubuntu-18.04-bionic:latest` | amd64 + arm64 |
-| Docker Hub | `samtechlab/ubuntu-18.04-bionic:YYYY.MM` | amd64 + arm64 |
-| GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest` | amd64 + arm64 |
-| GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:YYYY.MM` | amd64 + arm64 |
+| Docker Hub | `samtechlab/ubuntu-18.04-bionic-test:latest` | amd64 + arm64 |
+| Docker Hub | `samtechlab/ubuntu-18.04-bionic-test:YYYY.MM` | amd64 + arm64 |
+| GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest` | amd64 + arm64 |
+| GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:YYYY.MM` | amd64 + arm64 |
 
 Tags point at a multi-architecture manifest — Docker automatically selects the right image for
 the host platform. `latest` tracks the monthly rebuild.
@@ -177,7 +177,7 @@ For a genuinely fixed image, **pin by digest** — see
 ### Run a container
 
 ```bash
-docker run -it --rm ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+docker run -it --rm ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 ```
 
 You get a `bash` shell as `appuser`. There is no root process in the container.
@@ -188,7 +188,7 @@ The image ends with `USER appuser`, so **any derived image must switch back to `
 packages**, then drop privileges again:
 
 ```dockerfile
-FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 
 USER root
 RUN apt-get update && \
@@ -213,13 +213,13 @@ processes and handle signals itself. A process that does neither leaves zombies 
 If your process is not designed for that role, let Docker supply a minimal init:
 
 ```bash
-docker run --init ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest your-command
+docker run --init ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest your-command
 ```
 
 ```yaml
 services:
   app:
-    image: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+    image: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
     init: true
 ```
 
@@ -235,7 +235,7 @@ port below 1024 and cannot write to its usual runtime locations — hence the ad
 
 `Dockerfile`
 ```dockerfile
-FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 
 USER root
 RUN apt-get update && \
@@ -308,7 +308,7 @@ Recommended runtime hardening for your deployments:
 ```yaml
 services:
   app:
-    image: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+    image: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -342,13 +342,13 @@ Every image carries OCI provenance labels — the exact commit it was built from
 
 ```bash
 docker inspect --format '{{json .Config.Labels}}' \
-  ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest | jq
+  ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest | jq
 ```
 
 Pin by digest to guarantee byte-for-byte reproducibility:
 
 ```bash
-docker pull ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic@sha256:<digest>
+docker pull ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test@sha256:<digest>
 ```
 
 Vulnerability reporting is covered in [`SECURITY.md`](./SECURITY.md).
@@ -429,16 +429,16 @@ Contributions are welcome: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the
 
 ```bash
 # Lancer un shell (en tant qu'appuser, non privilégié)
-docker run -it --rm ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+docker run -it --rm ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 
 # Ou depuis Docker Hub
-docker run -it --rm samtechlab/ubuntu-18.04-bionic:latest
+docker run -it --rm samtechlab/ubuntu-18.04-bionic-test:latest
 ```
 
 Construire par-dessus :
 
 ```dockerfile
-FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 
 # L'image tourne en appuser : repasser en root pour installer, puis redescendre.
 USER root
@@ -495,10 +495,10 @@ utilisateur non-root, un socle système durci — puis elle vous laisse travaill
 
 | Registre | Image | Architectures |
 |---|---|---|
-| Docker Hub | `samtechlab/ubuntu-18.04-bionic:latest` | amd64 + arm64 |
-| Docker Hub | `samtechlab/ubuntu-18.04-bionic:YYYY.MM` | amd64 + arm64 |
-| GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest` | amd64 + arm64 |
-| GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:YYYY.MM` | amd64 + arm64 |
+| Docker Hub | `samtechlab/ubuntu-18.04-bionic-test:latest` | amd64 + arm64 |
+| Docker Hub | `samtechlab/ubuntu-18.04-bionic-test:YYYY.MM` | amd64 + arm64 |
+| GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest` | amd64 + arm64 |
+| GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:YYYY.MM` | amd64 + arm64 |
 
 Les tags pointent vers un manifeste multi-architecture : Docker sélectionne automatiquement
 l'image correspondant à la plateforme hôte. `latest` suit la reconstruction mensuelle.
@@ -562,7 +562,7 @@ Pour une image réellement figée, **épinglez par digest** — voir
 ### Lancer un conteneur
 
 ```bash
-docker run -it --rm ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+docker run -it --rm ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 ```
 
 Vous obtenez un shell `bash` en tant que `appuser`. Aucun processus root ne tourne dans le
@@ -574,7 +574,7 @@ L'image se termine par `USER appuser` : **toute image dérivée doit donc repass
 installer des paquets**, puis redescendre :
 
 ```dockerfile
-FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 
 USER root
 RUN apt-get update && \
@@ -600,13 +600,13 @@ processus qui ne fait ni l'un ni l'autre laisse des zombies, ou ignore `SIGTERM`
 Si votre processus n'est pas prévu pour ce rôle, laissez Docker fournir un init minimal :
 
 ```bash
-docker run --init ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest votre-commande
+docker run --init ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest votre-commande
 ```
 
 ```yaml
 services:
   app:
-    image: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+    image: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
     init: true
 ```
 
@@ -623,7 +623,7 @@ d'où les ajustements ci-dessous.
 
 `Dockerfile`
 ```dockerfile
-FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+FROM ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
 
 USER root
 RUN apt-get update && \
@@ -698,7 +698,7 @@ Durcissement recommandé à l'exécution pour vos déploiements :
 ```yaml
 services:
   app:
-    image: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
+    image: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -735,13 +735,13 @@ de construction :
 
 ```bash
 docker inspect --format '{{json .Config.Labels}}' \
-  ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest | jq
+  ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test:latest | jq
 ```
 
 Figez par digest pour garantir une reproductibilité au bit près :
 
 ```bash
-docker pull ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic@sha256:<digest>
+docker pull ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic-test@sha256:<digest>
 ```
 
 Le signalement de vulnérabilités est décrit dans [`SECURITY.md`](./SECURITY.md).
