@@ -38,8 +38,127 @@ jobs:
           dockerfile: Dockerfile-multi-arch
           failure-threshold: error
 
-  build-multi-arch:
+  test:
+    name: Test d'intégration (${{ matrix.arch }})
     needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      # Une architecture en échec ne doit pas masquer l'état de l'autre.
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # L'arm64 est construit et exécuté sous émulation. Sans lui, la
+      # moitié de ce qui est publié n'aurait jamais vu un processus
+      # démarrer : l'arm64 partait vers les registres sur la seule foi
+      # de sa compilation.
+      - name: Set up QEMU (émulation arm64)
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build de l'image de test (${{ matrix.arch }}, local)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile-multi-arch
+          platforms: linux/${{ matrix.arch }}
+          push: false
+          load: true
+          tags: bionic-test:ci
+
+      # Les tests ci-dessous ne précisent pas de plateforme : ils portent
+      # sur l'unique image locale. On vérifie donc que c'est bien celle
+      # qu'on croit, faute de quoi le job arm64 testerait de l'amd64 tout
+      # en affichant une couverture des deux.
+      - name: L'image construite est bien en ${{ matrix.arch }}
+        run: |
+          ARCH=$(docker image inspect --format '{{.Architecture}}' bionic-test:ci)
+          echo "architecture de l'image = ${ARCH}"
+          test "${ARCH}" = "${{ matrix.arch }}"
+
+      # Cette image n'a pas de système d'init : le CMD devient PID 1.
+      # C'est ce que documente la section « Processus et signaux », et
+      # c'est la différence de fond avec la variante s6-overlay.
+      - name: Le CMD est bien PID 1 (aucun init interposé)
+        run: |
+          PID1=$(docker run --rm bionic-test:ci sh -c 'cat /proc/1/comm')
+          echo "PID 1 = ${PID1}"
+          test "${PID1}" = "sh"
+
+      - name: Le CMD par défaut est /bin/bash
+        run: |
+          CMD=$(docker image inspect --format '{{json .Config.Cmd}}' bionic-test:ci)
+          echo "CMD = ${CMD}"
+          test "${CMD}" = '["/bin/bash"]'
+
+      # Propriété centrale de cette image : contrairement à la variante
+      # s6-overlay, aucun processus ne tourne en root, PID 1 compris.
+      - name: Le conteneur tourne en appuser, jamais en root
+        run: |
+          OUT=$(docker run --rm bionic-test:ci id -un)
+          UID_=$(docker run --rm bionic-test:ci id -u)
+          echo "utilisateur = ${OUT} (uid ${UID_})"
+          test "${OUT}" = "appuser"
+          test "${UID_}" = "1000"
+
+      - name: HOME vaut /config et /config est inscriptible
+        run: |
+          OUT=$(docker run --rm bionic-test:ci sh -c 'echo "$HOME"')
+          echo "HOME = ${OUT}"
+          test "${OUT}" = "/config"
+          docker run --rm bionic-test:ci sh -c 'touch /config/preuve && test -f /config/preuve'
+
+      - name: /config appartient à appuser en mode 750
+        run: |
+          OUT=$(docker run --rm bionic-test:ci stat -c '%U:%G %a' /config)
+          echo "/config = ${OUT}"
+          test "${OUT}" = "appuser:appuser 750"
+
+      - name: Le code de sortie du CMD est propagé au conteneur
+        run: |
+          set +e
+          docker run --rm bionic-test:ci sh -c 'exit 42'
+          CODE=$?
+          set -e
+          echo "code de sortie = ${CODE}"
+          test "${CODE}" -eq 42
+
+      # Exécuté en root (-u 0) : appuser ne peut pas traverser /root, et
+      # un balayage incomplet donnerait un faux négatif rassurant.
+      - name: Aucun binaire SUID/SGID ne subsiste
+        run: |
+          N=$(docker run --rm -u 0 bionic-test:ci \
+                find / -xdev -type f \( -perm -4000 -o -perm -2000 \) -print 2>/dev/null | wc -l)
+          echo "binaires SUID/SGID restants = ${N}"
+          test "${N}" -eq 0
+
+      - name: La locale en_US.UTF-8 est générée
+        run: |
+          docker run --rm bionic-test:ci sh -c 'locale -a' | tr -d '\r' | grep -qix 'en_US.utf8'
+          echo "locale en_US.utf8 présente"
+
+      - name: Le fuseau horaire par défaut est UTC
+        run: |
+          OUT=$(docker run --rm bionic-test:ci date +%Z)
+          echo "fuseau = ${OUT}"
+          test "${OUT}" = "UTC"
+
+  build-multi-arch:
+    needs: test
     # Ne jamais publier depuis une PR.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
