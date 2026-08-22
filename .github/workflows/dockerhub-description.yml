@@ -19,6 +19,11 @@ concurrency:
   group: dockerhub-description
   cancel-in-progress: true
 
+# Le nom du dépôt Docker Hub servait à trois endroits. Un renommage
+# d'image en a déjà laissé un derrière : une seule source ici.
+env:
+  DOCKERHUB_REPO: samtechlab/ubuntu-18.04-bionic-test
+
 jobs:
   sync:
     name: Publier la description
@@ -58,24 +63,54 @@ jobs:
             exit 1
           fi
 
-      - name: Sync README to Docker Hub
+      # Un dépôt Docker Hub n'existe qu'à partir du premier push d'image. Sur
+      # un dépôt neuf, ce workflow part sur le même push que le build et
+      # arrive avant lui : l'action échouait alors sur un dépôt inexistant.
+      # C'est arrivé aux deux dépôts Focal le jour de leur création. Il n'y a
+      # rien à corriger dans ce cas — la description partira à la
+      # modification suivante du fichier, ou au déclenchement manuel.
+      #
+      # Seul un 404 est traité ainsi. Toute autre réponse — API en panne,
+      # jeton refusé — reste une erreur : sinon la garde rendrait le workflow
+      # vert sur les pannes qu'il est justement là pour signaler.
+      - name: Le dépôt Docker Hub existe-t-il déjà ?
+        id: hub
         if: steps.dockerhub.outputs.available == 'true'
+        run: |
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 40 \
+            "https://hub.docker.com/v2/repositories/${DOCKERHUB_REPO}/")
+          case "${CODE}" in
+            200)
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::${DOCKERHUB_REPO} n'existe pas encore sur Docker Hub — un dépôt y est créé au premier push d'image. Synchronisation reportée."
+              ;;
+            *)
+              echo "::error::Docker Hub a répondu ${CODE} pour ${DOCKERHUB_REPO}."
+              exit 1
+              ;;
+          esac
+
+      - name: Sync README to Docker Hub
+        if: steps.dockerhub.outputs.available == 'true' && steps.hub.outputs.exists == 'true'
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: samtechlab/ubuntu-18.04-bionic-test
+          repository: ${{ env.DOCKERHUB_REPO }}
           readme-filepath: ./README-dockerhub.md
 
       # L'action ne signale pas un rejet côté Docker Hub. On relit donc la
       # description publiée et on la compare au fichier : c'est la seule
       # preuve que la synchronisation a réellement abouti.
       - name: Vérifier que la description en ligne correspond au fichier
-        if: steps.dockerhub.outputs.available == 'true'
+        if: steps.dockerhub.outputs.available == 'true' && steps.hub.outputs.exists == 'true'
         run: |
           sleep 5
           EN_LIGNE=$(curl -fsSL --max-time 40 \
-            "https://hub.docker.com/v2/repositories/samtechlab/ubuntu-18.04-bionic-test/" \
+            "https://hub.docker.com/v2/repositories/${DOCKERHUB_REPO}/" \
             | jq -r '.full_description // ""' | wc -c)
           LOCAL=$(wc -c < README-dockerhub.md)
           echo "publiée : ${EN_LIGNE} octets | fichier : ${LOCAL} octets"
