@@ -27,6 +27,23 @@ The image includes the following default protections:
 - blocked automatic service start during package installation
 - cleaned APT caches, temp files, and logs during build
 - official Ubuntu OCI rootfs as the base source
+- **no privileged process**: the image ends with `USER appuser`, so PID 1 itself runs unprivileged
+- SBOM and SLSA provenance attestations published alongside every image
+- Alpine builder pinned by digest; CI actions pinned by commit SHA
+
+### `PUID` / `PGID` are fixed
+
+`appuser` is created at `1000:1000` when the image is built. This image has no init system, so
+nothing remaps it at container start: `-e PUID=…` has no effect. Rebuild with
+`--build-arg PUID=… --build-arg PGID=…` if you need different IDs.
+
+### Base image support status
+
+Ubuntu 18.04 LTS left standard support on **31 May 2023**. Its public archive no longer receives
+new security updates — those are published through Ubuntu Pro (ESM), which this image does not
+subscribe to. Monthly rebuilds therefore refresh the image against a frozen archive, and known
+CVEs may remain unfixed. Treat this image as suitable for legacy or reproducibility needs, not as
+a maintained production base.
 
 ---
 
@@ -44,8 +61,16 @@ Security scanning is automated with [Trivy](https://github.com/aquasecurity/triv
 
 The scan workflow runs:
 - every week on Monday at **04:00 UTC**
-- automatically after successful image build workflows
+- automatically after every build workflow that published an image
 - manually through GitHub Actions if needed
+
+Both architectures are scanned. Vulnerabilities with **no fix available** are reported rather than
+filtered out: Bionic's archive is frozen, so most of its exposure has no fix, and hiding it would
+make the image look clean. Expect the reports to be long — that is the accurate picture.
+
+SARIF upload requires code scanning to be enabled under *Settings → Code security*. When it is
+not, the scan still runs: the JSON report and the run summary remain available, and the workflow
+records a warning instead of failing.
 
 ---
 
@@ -104,6 +129,25 @@ L’image applique notamment :
 - la réduction des bits SUID/SGID inutiles
 - le blocage du démarrage automatique des services à l’installation
 - le nettoyage des caches APT, fichiers temporaires et journaux
+- **aucun processus privilégié** : l'image se termine par `USER appuser`, donc PID 1 lui-même
+  s'exécute sans privilèges
+- des attestations SBOM et de provenance SLSA publiées à côté de chaque image
+- le builder Alpine figé par digest, les actions CI figées par SHA de commit
+
+### `PUID` / `PGID` sont figés
+
+`appuser` est créé en `1000:1000` à la construction. Cette image n'a pas de système d'init : rien
+ne le remappe au démarrage du conteneur, et `-e PUID=…` n'a aucun effet. Reconstruisez avec
+`--build-arg PUID=… --build-arg PGID=…` si vous avez besoin d'autres identifiants.
+
+### État du support de l'image de base
+
+Ubuntu 18.04 LTS est sorti du support standard le **31 mai 2023**. Son archive publique ne reçoit
+plus de nouvelles mises à jour de sécurité : celles-ci passent par Ubuntu Pro (ESM), auquel cette
+image n'est pas abonnée. Les reconstructions mensuelles rafraîchissent donc l'image à partir d'une
+archive figée, et des CVE connues peuvent rester non corrigées. Considérez cette image comme
+adaptée à des besoins de compatibilité ou de reproductibilité, non comme une base de production
+maintenue.
 
 ## Analyse des vulnérabilités
 
@@ -119,8 +163,17 @@ L'analyse de sécurité est automatisée avec [Trivy](https://github.com/aquasec
 
 Le workflow d'analyse s'exécute :
 - chaque semaine, le lundi à **04h00 UTC**
-- automatiquement après le succès des workflows de build de l'image
+- automatiquement après chaque workflow de build ayant publié une image
 - manuellement via GitHub Actions si besoin
+
+Les deux architectures sont analysées. Les vulnérabilités **sans correctif disponible** sont
+remontées plutôt que filtrées : l'archive Bionic étant figée, l'essentiel de l'exposition n'a pas
+de correctif, et la masquer donnerait l'image d'un système sain. Les rapports sont donc longs —
+c'est le reflet fidèle de la situation.
+
+L'envoi du SARIF suppose le code scanning activé dans *Settings → Code security*. Sinon l'analyse
+tourne quand même : le rapport JSON et le résumé du run restent disponibles, et le workflow émet
+un avertissement au lieu d'échouer.
 
 ## Signalement d’une vulnérabilité
 

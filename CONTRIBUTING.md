@@ -33,8 +33,11 @@ Open an issue describing:
 
 ## CI on pull requests
 
-- `build-multi-arch.yml` runs its **lint job on every pull request**, so a PR that changes the Dockerfile or a workflow gets checked before merge. It only **builds and pushes** on a push to `main` (path-filtered to `Dockerfile-multi-arch`), on the monthly schedule, or via manual dispatch — never from a pull request.
-- `vuln-scan.yml` scans the published image weekly and after successful builds — it isn't part of PR review either.
+- `build-multi-arch.yml` runs **hadolint and the integration tests on every pull request**, so a PR that changes the Dockerfile or a workflow is fully checked before merge. The tests run as a matrix over **amd64 and arm64** — arm64 builds and runs under QEMU emulation. Publishing waits on both, and only happens on a push to `main` (path-filtered to `Dockerfile-multi-arch`), on the monthly schedule, or via manual dispatch — never from a pull request.
+- Both registries are served by a **single build**, so they publish the same digest. Adding a tag means adding it to the `Composer la liste des tags` step, not adding a second build.
+- Do **not** quote values in the `labels:` block. Each line is passed verbatim to `--label` and buildx splits on the first `=` without stripping anything, so quotes end up inside the published value. A post-publish step fails the build if any label carries them.
+- `vuln-scan.yml` scans the published image weekly, and after any build that actually published one — it isn't part of PR review either.
+- **The Docker Hub description** is `README-dockerhub.md`, not `README.md`: Docker Hub caps the overview at 25 000 bytes, strips most raw HTML and does not resolve repository-relative links. It has its own workflow, `dockerhub-description.yml`, triggered when that file changes — a documentation edit no longer needs an image rebuild to reach Docker Hub. Keep both READMEs bilingual and in agreement on facts.
 
 ## Style
 
@@ -80,8 +83,11 @@ Ouvrez une issue en précisant :
 
 ### CI sur les pull requests
 
-- `build-multi-arch.yml` exécute son **job de lint sur chaque pull request** : une PR modifiant le Dockerfile ou un workflow est donc vérifiée avant merge. Il ne **build et ne publie** que sur un push vers `main` (filtré sur `Dockerfile-multi-arch`), sur la planification mensuelle, ou via déclenchement manuel — jamais depuis une pull request.
-- `vuln-scan.yml` scanne l'image publiée chaque semaine et après un build réussi — il ne fait pas non plus partie de la revue de PR.
+- `build-multi-arch.yml` exécute **hadolint et les tests d'intégration sur chaque pull request** : une PR modifiant le Dockerfile ou un workflow est donc entièrement vérifiée avant merge. Les tests tournent en matrice sur **amd64 et arm64**, l'arm64 étant construit et exécuté sous émulation QEMU. La publication attend les deux, et n'a lieu que sur un push vers `main` (filtré sur `Dockerfile-multi-arch`), sur la planification mensuelle, ou via déclenchement manuel — jamais depuis une pull request.
+- Les deux registres sont servis par un **build unique**, afin qu'ils publient le même digest. Ajouter un tag consiste à l'ajouter à l'étape `Composer la liste des tags`, pas à ajouter un second build.
+- N'encadrez **pas** les valeurs du bloc `labels:` de guillemets. Chaque ligne est passée telle quelle à `--label`, et buildx découpe au premier `=` sans rien retirer : les guillemets se retrouvent dans la valeur publiée. Une étape post-publication fait échouer le build si un label en porte.
+- `vuln-scan.yml` scanne l'image publiée chaque semaine, et après tout build en ayant réellement publié une — il ne fait pas non plus partie de la revue de PR.
+- **La description Docker Hub** est `README-dockerhub.md`, et non `README.md` : Docker Hub plafonne l'aperçu à 25 000 octets, retire l'essentiel du HTML brut et ne résout pas les liens relatifs au dépôt. Elle a son propre workflow, `dockerhub-description.yml`, déclenché quand ce fichier change — une modification de documentation n'a donc plus besoin d'une reconstruction d'image pour atteindre Docker Hub. Gardez les deux README bilingues et d'accord sur les faits.
 
 ### Style
 

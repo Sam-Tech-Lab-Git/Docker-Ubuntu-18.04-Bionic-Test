@@ -85,7 +85,8 @@ share the host's), a non-root user,
 and a hardened system baseline — then it gets out of your way.
 
 > **Supported architectures:** `linux/amd64`, `linux/arm64`
-> **Automatic monthly rebuilds** pick up the latest Ubuntu security patches.
+> **Automatic monthly rebuilds** pick up whatever Ubuntu still publishes for Bionic — read
+> [Base image support status](#base-image-support-status) before deploying this in production.
 
 ### Key features
 
@@ -98,7 +99,9 @@ and a hardened system baseline — then it gets out of your way.
 - ✅ **APT & dpkg optimisation** — no recommended/suggested packages, no translations, clean cache
 - ✅ **Service managers neutralised** (`systemd`, `upstart`) so packages do not try to start daemons
 - ✅ **Locale and timezone configured** (`en_US.UTF-8`, `UTC`)
-- ✅ **Continuously verified** — hadolint on every build, weekly Trivy scans
+- ✅ **SBOM and SLSA provenance** attached to every published image
+- ✅ **Continuously verified** — hadolint, 9 container integration tests run on **both
+  architectures**, weekly Trivy scans
 
 ---
 
@@ -114,8 +117,14 @@ and a hardened system baseline — then it gets out of your way.
 | GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:YYYY.MM` | amd64 + arm64 |
 
 Tags point at a multi-architecture manifest — Docker automatically selects the right image for
-the host platform. `YYYY.MM` tags (e.g. `2026.08`) are immutable monthly snapshots; prefer them
-for reproducible deployments, and `latest` for automatic security updates.
+the host platform. `latest` tracks the monthly rebuild.
+
+**Neither tag is immutable.** A `YYYY.MM` tag names the month a build ran, not one specific build:
+any build during that month republishes it — the monthly schedule, a manual dispatch, or a push to
+`main` that touches the Dockerfile. On 2 August 2026, six builds all wrote `2026.08`.
+
+For a genuinely fixed image, **pin by digest** — see
+[Verifying what you are running](#verifying-what-you-are-running).
 
 ### Included packages
 
@@ -135,11 +144,16 @@ for reproducible deployments, and `latest` for automatic security updates.
 | `DEBIAN_FRONTEND` | `noninteractive` | Suppresses interactive APT prompts |
 | `PATH` | `/usr/local/sbin:/usr/local/bin:…` | Standard system path |
 
-> **`PUID` and `PGID` are build-time values, not runtime settings.** They are baked into the
-> image when `appuser` is created (`1000:1000`). Passing `-e PUID=1001` to `docker run` has **no
-> effect** — the user's UID is already fixed. To use different IDs, rebuild the image with
-> `--build-arg`, or align permissions on the host side instead (see
-> [Troubleshooting](#troubleshooting)).
+> **`PUID` and `PGID` are build arguments, not runtime settings.** They are baked in when
+> `appuser` is created (`1000:1000`), and nothing applies them at container start — this image has
+> no init system. Passing `-e PUID=1001` to `docker run` has **no effect**. To use different IDs:
+>
+> ```bash
+> docker buildx build -f Dockerfile-multi-arch \
+>   --build-arg PUID=1001 --build-arg PGID=1001 -t my-bionic .
+> ```
+>
+> …or align permissions on the host side instead (see [Troubleshooting](#troubleshooting)).
 
 ### Filesystem layout
 
@@ -304,6 +318,24 @@ services:
       - /tmp
 ```
 
+### Base image support status
+
+Ubuntu 18.04 LTS left standard support on **31 May 2023**. Its public archive no longer receives
+new security updates: those are published through Ubuntu Pro (ESM), which this image does not
+subscribe to. Two consequences worth stating plainly:
+
+- The monthly rebuild refreshes the image against what Ubuntu still serves for Bionic. It does
+  **not** bring in fixes that only exist behind ESM, so a CVE fixed for 20.04 or 22.04 may stay
+  open here indefinitely.
+- Trivy itself flags this on every scan (*"This OS version is no longer supported by the
+  distribution"*): Ubuntu no longer issues advisories for Bionic, so Trivy's data for it stops
+  where those advisories stopped. The scans deliberately report vulnerabilities that have **no fix
+  available** — on a frozen archive that is most of them.
+
+Use this image where an 18.04 userland is a hard requirement — legacy binaries, an old toolchain,
+reproducing a historical environment. For anything new, start from a supported Ubuntu LTS. If you
+must stay on 18.04 in production, add an Ubuntu Pro subscription inside your derived image.
+
 ### Verifying what you are running
 
 Every image carries OCI provenance labels — the exact commit it was built from, and when:
@@ -366,13 +398,19 @@ Same cause — PID 1 is not reaping children. Use `--init`.
 
 ## Maintenance
 
-- **Images are rebuilt monthly** (1st of the month, 03:00 UTC) with the latest Ubuntu security
-  updates, and can be triggered manually from the Actions tab.
-- **Vulnerabilities are scanned weekly** (Mondays, 04:00 UTC) and after every successful build,
-  with Trivy. Results go to the repository's **Security → Code scanning** tab; full JSON reports
-  are kept as build artifacts for 90 days.
-- **The Dockerfile is linted** with hadolint on every pull request and before every build.
-  Pull requests run the lint job only — they never build or publish an image.
+- **Images are rebuilt monthly** (1st of the month, 03:00 UTC) against the current Bionic
+  archive, and can be triggered manually from the Actions tab. See
+  [Base image support status](#base-image-support-status) for what that does and does not cover.
+- **Vulnerabilities are scanned weekly** (Mondays, 04:00 UTC) and after every build that published
+  an image, with Trivy, on both architectures. Findings with no fix available are included. Full
+  JSON reports are kept as build artifacts for 90 days, and every run writes a summary table to
+  its workflow page. Results also go to the **Security → Code scanning** tab, which requires code
+  scanning to be enabled in *Settings → Code security*; when it is not, the scan still runs and
+  says so in its summary.
+- **Every pull request runs hadolint and the integration tests** on amd64 and arm64. Publishing
+  waits on both, and never happens from a pull request.
+- **The Docker Hub description** is a separate file, `README-dockerhub.md`, synchronised by its
+  own workflow when that file changes.
 
 Source: [`Dockerfile-multi-arch`](./Dockerfile-multi-arch).
 Contributions are welcome: see [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the
@@ -428,7 +466,9 @@ partagent celui de l'hôte), un
 utilisateur non-root, un socle système durci — puis elle vous laisse travailler.
 
 > **Architectures supportées :** `linux/amd64`, `linux/arm64`
-> **Reconstructions mensuelles automatiques** intégrant les derniers correctifs de sécurité Ubuntu.
+> **Reconstructions mensuelles automatiques** intégrant ce qu'Ubuntu publie encore pour Bionic —
+> lisez [État du support de l'image de base](#état-du-support-de-limage-de-base) avant tout
+> déploiement en production.
 
 ### Points forts
 
@@ -443,7 +483,9 @@ utilisateur non-root, un socle système durci — puis elle vous laisse travaill
 - ✅ **Gestionnaires de services neutralisés** (`systemd`, `upstart`) pour que les paquets
   n'essaient pas de démarrer de daemons
 - ✅ **Locale et fuseau horaire configurés** (`en_US.UTF-8`, `UTC`)
-- ✅ **Vérifiée en continu** — hadolint à chaque build, scans Trivy hebdomadaires
+- ✅ **SBOM et provenance SLSA** joints à chaque image publiée
+- ✅ **Vérifiée en continu** — hadolint, 9 tests d'intégration sur conteneur joués sur **les deux
+  architectures**, scans Trivy hebdomadaires
 
 ---
 
@@ -459,9 +501,14 @@ utilisateur non-root, un socle système durci — puis elle vous laisse travaill
 | GHCR | `ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:YYYY.MM` | amd64 + arm64 |
 
 Les tags pointent vers un manifeste multi-architecture : Docker sélectionne automatiquement
-l'image correspondant à la plateforme hôte. Les tags `YYYY.MM` (par ex. `2026.08`) sont des
-instantanés mensuels immuables — préférez-les pour des déploiements reproductibles, et `latest`
-pour bénéficier automatiquement des mises à jour de sécurité.
+l'image correspondant à la plateforme hôte. `latest` suit la reconstruction mensuelle.
+
+**Aucun de ces tags n'est immuable.** Un tag `YYYY.MM` désigne le mois où un build a eu lieu, pas
+un build en particulier : tout build de ce mois-là le republie. Le 2 août 2026, six builds ont
+tous écrit `2026.08`.
+
+Pour une image réellement figée, **épinglez par digest** — voir
+[Vérifier ce que vous exécutez](#vérifier-ce-que-vous-exécutez).
 
 ### Paquets inclus
 
@@ -481,11 +528,17 @@ pour bénéficier automatiquement des mises à jour de sécurité.
 | `DEBIAN_FRONTEND` | `noninteractive` | Supprime les invites APT interactives |
 | `PATH` | `/usr/local/sbin:/usr/local/bin:…` | Chemin système standard |
 
-> **`PUID` et `PGID` sont des valeurs de build, pas des réglages d'exécution.** Elles sont figées
-> dans l'image à la création de `appuser` (`1000:1000`). Passer `-e PUID=1001` à `docker run`
-> **n'a aucun effet** : l'UID de l'utilisateur est déjà fixé. Pour utiliser d'autres
-> identifiants, reconstruisez l'image avec `--build-arg`, ou alignez les permissions côté hôte
-> (voir [Dépannage](#dépannage)).
+> **`PUID` et `PGID` sont des arguments de build, pas des réglages d'exécution.** Ils sont figés
+> à la création de `appuser` (`1000:1000`), et rien ne les applique au démarrage du conteneur :
+> cette image n'a pas de système d'init. Passer `-e PUID=1001` à `docker run` **n'a aucun effet**.
+> Pour d'autres identifiants :
+>
+> ```bash
+> docker buildx build -f Dockerfile-multi-arch \
+>   --build-arg PUID=1001 --build-arg PGID=1001 -t mon-bionic .
+> ```
+>
+> …ou alignez les permissions côté hôte (voir [Dépannage](#dépannage)).
 
 ### Arborescence
 
@@ -655,6 +708,26 @@ services:
       - /tmp
 ```
 
+### État du support de l'image de base
+
+Ubuntu 18.04 LTS est sorti du support standard le **31 mai 2023**. Son archive publique ne reçoit
+plus de nouvelles mises à jour de sécurité : celles-ci passent par Ubuntu Pro (ESM), auquel cette
+image n'est pas abonnée. Deux conséquences à énoncer clairement :
+
+- La reconstruction mensuelle rafraîchit l'image à partir de ce qu'Ubuntu sert encore pour Bionic.
+  Elle n'apporte **pas** les correctifs qui n'existent que derrière l'ESM : une CVE corrigée pour
+  20.04 ou 22.04 peut rester ouverte ici indéfiniment.
+- Trivy le signale à chaque analyse (*« This OS version is no longer supported by the
+  distribution »*) : Ubuntu ne publie plus d'avis de sécurité pour Bionic, et les données de Trivy
+  s'arrêtent donc là où ces avis se sont arrêtés. Les analyses remontent volontairement les
+  vulnérabilités **sans correctif disponible** — sur une archive figée, c'est la majorité d'entre
+  elles.
+
+Utilisez cette image là où un userland 18.04 est une contrainte dure — binaires hérités, ancienne
+chaîne de compilation, reproduction d'un environnement historique. Pour tout nouveau projet,
+partez d'une LTS Ubuntu encore supportée. Si vous devez rester sur 18.04 en production, ajoutez un
+abonnement Ubuntu Pro dans votre image dérivée.
+
 ### Vérifier ce que vous exécutez
 
 Chaque image porte des labels de provenance OCI — le commit exact dont elle est issue, et sa date
@@ -718,13 +791,20 @@ Même cause : le PID 1 ne récupère pas ses fils. Utilisez `--init`.
 
 ## Maintenance
 
-- **Les images sont reconstruites chaque mois** (le 1er, à 03h00 UTC) avec les dernières mises à
-  jour de sécurité Ubuntu, et peuvent être déclenchées manuellement depuis l'onglet Actions.
+- **Les images sont reconstruites chaque mois** (le 1er, à 03h00 UTC) à partir de l'archive
+  Bionic courante, et peuvent être déclenchées manuellement depuis l'onglet Actions. Voir
+  [État du support de l'image de base](#état-du-support-de-limage-de-base) pour ce que cela
+  couvre — et ne couvre pas.
 - **Les vulnérabilités sont scannées chaque semaine** (lundi, 04h00 UTC) et après chaque build
-  réussi, avec Trivy. Les résultats sont dans l'onglet **Security → Code scanning** du dépôt ;
-  les rapports JSON complets sont conservés 90 jours en artefacts de build.
-- **Le Dockerfile est analysé** par hadolint à chaque pull request et avant chaque build. Les
-  pull requests n'exécutent que le job de lint : elles ne construisent ni ne publient d'image.
+  ayant publié une image, avec Trivy, sur les deux architectures. Les vulnérabilités sans
+  correctif disponible sont incluses. Les rapports JSON complets sont conservés 90 jours en
+  artefacts de build, et chaque run écrit un tableau de synthèse sur sa page de workflow. Les
+  résultats vont aussi dans l'onglet **Security → Code scanning**, ce qui suppose le code scanning
+  activé dans *Settings → Code security* ; sinon l'analyse tourne quand même et le signale.
+- **Chaque pull request exécute hadolint et les tests d'intégration** sur amd64 et arm64. La
+  publication attend les deux, et n'a jamais lieu depuis une pull request.
+- **La description Docker Hub** est un fichier distinct, `README-dockerhub.md`, synchronisé par
+  son propre workflow quand ce fichier change.
 
 Source : [`Dockerfile-multi-arch`](./Dockerfile-multi-arch).
 Les contributions sont bienvenues : voir [`CONTRIBUTING.md`](./CONTRIBUTING.md) et le
