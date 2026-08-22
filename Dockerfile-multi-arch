@@ -120,9 +120,18 @@ RUN set -eux && \
 # -------------------------------------------------- #
 # Sécurité & utilisateur non-root (production-grade) #
 # -------------------------------------------------- #
-ENV PUID=1000 \
-    PGID=1000 \
-    HOME=/config
+# PUID/PGID sont des ARG et non des ENV. Deux raisons :
+#
+# 1. `--build-arg PUID=…` — le contournement que documente le README —
+#    n'agit que sur des ARG. En ENV, l'option était silencieusement
+#    ignorée et l'UID restait 1000 : le remède documenté ne marchait pas.
+# 2. En ENV, ces variables persistaient dans l'image finale et
+#    annonçaient à l'exécution deux réglages sans le moindre effet, cette
+#    image n'ayant pas de système d'init pour les appliquer.
+ARG PUID=1000
+ARG PGID=1000
+
+ENV HOME=/config
 
 RUN set -eux && \
     echo "**** Création utilisateur sécurisé ****" && \

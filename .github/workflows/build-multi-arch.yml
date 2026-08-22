@@ -19,6 +19,12 @@ concurrency:
   group: build-multi-arch-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  # GHCR exige un chemin en minuscules ; github.repository_owner ne l'est
+  # pas, d'où la valeur littérale.
+  GHCR_IMAGE: ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic
+  DOCKERHUB_IMAGE: samtechlab/ubuntu-18.04-bionic
+
 jobs:
   lint:
     name: Lint Dockerfile
@@ -38,8 +44,142 @@ jobs:
           dockerfile: Dockerfile-multi-arch
           failure-threshold: error
 
-  build-multi-arch:
+      # Doublon volontaire du test présent dans le workflow de
+      # synchronisation : celui-ci tourne sur les pull requests, donc le
+      # dépassement est détecté avant le merge et non au moment de publier.
+      # On mesure en octets, pas en caractères — les accents comptent
+      # double en UTF-8.
+      - name: La description Docker Hub tient sous la limite
+        run: |
+          LIMIT=25000
+          SIZE=$(wc -c < README-dockerhub.md)
+          echo "README-dockerhub.md : ${SIZE} octets (limite ${LIMIT})"
+          if [ "${SIZE}" -gt "${LIMIT}" ]; then
+            echo "::error::README-dockerhub.md dépasse la limite Docker Hub de $((SIZE - LIMIT)) octets."
+            exit 1
+          fi
+
+  test:
+    name: Test d'intégration (${{ matrix.arch }})
     needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      # Une architecture en échec ne doit pas masquer l'état de l'autre.
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # L'arm64 est construit et exécuté sous émulation. Sans lui, la
+      # moitié de ce qui est publié n'aurait jamais vu un processus
+      # démarrer : l'arm64 partait vers les registres sur la seule foi
+      # de sa compilation.
+      - name: Set up QEMU (émulation arm64)
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build de l'image de test (${{ matrix.arch }}, local)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile-multi-arch
+          platforms: linux/${{ matrix.arch }}
+          push: false
+          load: true
+          tags: bionic-test:ci
+
+      # Les tests ci-dessous ne précisent pas de plateforme : ils portent
+      # sur l'unique image locale. On vérifie donc que c'est bien celle
+      # qu'on croit, faute de quoi le job arm64 testerait de l'amd64 tout
+      # en affichant une couverture des deux.
+      - name: L'image construite est bien en ${{ matrix.arch }}
+        run: |
+          ARCH=$(docker image inspect --format '{{.Architecture}}' bionic-test:ci)
+          echo "architecture de l'image = ${ARCH}"
+          test "${ARCH}" = "${{ matrix.arch }}"
+
+      # Cette image n'a pas de système d'init : le CMD devient PID 1.
+      # C'est ce que documente la section « Processus et signaux », et
+      # c'est la différence de fond avec la variante s6-overlay.
+      - name: Le CMD est bien PID 1 (aucun init interposé)
+        run: |
+          PID1=$(docker run --rm bionic-test:ci sh -c 'cat /proc/1/comm')
+          echo "PID 1 = ${PID1}"
+          test "${PID1}" = "sh"
+
+      - name: Le CMD par défaut est /bin/bash
+        run: |
+          CMD=$(docker image inspect --format '{{json .Config.Cmd}}' bionic-test:ci)
+          echo "CMD = ${CMD}"
+          test "${CMD}" = '["/bin/bash"]'
+
+      # Propriété centrale de cette image : contrairement à la variante
+      # s6-overlay, aucun processus ne tourne en root, PID 1 compris.
+      - name: Le conteneur tourne en appuser, jamais en root
+        run: |
+          OUT=$(docker run --rm bionic-test:ci id -un)
+          UID_=$(docker run --rm bionic-test:ci id -u)
+          echo "utilisateur = ${OUT} (uid ${UID_})"
+          test "${OUT}" = "appuser"
+          test "${UID_}" = "1000"
+
+      - name: HOME vaut /config et /config est inscriptible
+        run: |
+          OUT=$(docker run --rm bionic-test:ci sh -c 'echo "$HOME"')
+          echo "HOME = ${OUT}"
+          test "${OUT}" = "/config"
+          docker run --rm bionic-test:ci sh -c 'touch /config/preuve && test -f /config/preuve'
+
+      - name: /config appartient à appuser en mode 750
+        run: |
+          OUT=$(docker run --rm bionic-test:ci stat -c '%U:%G %a' /config)
+          echo "/config = ${OUT}"
+          test "${OUT}" = "appuser:appuser 750"
+
+      - name: Le code de sortie du CMD est propagé au conteneur
+        run: |
+          set +e
+          docker run --rm bionic-test:ci sh -c 'exit 42'
+          CODE=$?
+          set -e
+          echo "code de sortie = ${CODE}"
+          test "${CODE}" -eq 42
+
+      # Exécuté en root (-u 0) : appuser ne peut pas traverser /root, et
+      # un balayage incomplet donnerait un faux négatif rassurant.
+      - name: Aucun binaire SUID/SGID ne subsiste
+        run: |
+          N=$(docker run --rm -u 0 bionic-test:ci \
+                find / -xdev -type f \( -perm -4000 -o -perm -2000 \) -print 2>/dev/null | wc -l)
+          echo "binaires SUID/SGID restants = ${N}"
+          test "${N}" -eq 0
+
+      - name: La locale en_US.UTF-8 est générée
+        run: |
+          docker run --rm bionic-test:ci sh -c 'locale -a' | tr -d '\r' | grep -qix 'en_US.utf8'
+          echo "locale en_US.utf8 présente"
+
+      - name: Le fuseau horaire par défaut est UTC
+        run: |
+          OUT=$(docker run --rm bionic-test:ci date +%Z)
+          echo "fuseau = ${OUT}"
+          test "${OUT}" = "UTC"
+
+  build-multi-arch:
+    needs: test
     # Ne jamais publier depuis une PR.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -59,7 +199,26 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
+      # Le dépôt étant un banc d'essai, les secrets Docker Hub peuvent ne
+      # pas être configurés. On teste leur présence plutôt que de faire
+      # échouer toute la publication : GHCR, lui, passe par le GITHUB_TOKEN
+      # et fonctionne toujours.
+      - name: Les identifiants Docker Hub sont-ils disponibles ?
+        id: dockerhub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Secrets Docker Hub présents : publication activée."
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Secrets Docker Hub absents, publication Docker Hub ignorée (GHCR reste actif)."
+          fi
+
       - name: Log in to Docker Hub
+        if: steps.dockerhub.outputs.available == 'true'
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -80,13 +239,47 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-      - name: Build and push multi-arch to Docker Hub
+      # Les tags des deux registres sont donnés à une seule construction.
+      # Docker Hub n'entre dans la liste que si ses secrets sont présents ;
+      # sans cela, buildx tenterait un push non authentifié.
+      - name: Composer la liste des tags
+        id: tags
+        run: |
+          {
+            echo 'list<<TAGS_EOF'
+            echo "${GHCR_IMAGE}:latest"
+            echo "${GHCR_IMAGE}:${{ steps.version.outputs.tag }}"
+            if [ "${{ steps.dockerhub.outputs.available }}" = "true" ]; then
+              echo "${DOCKERHUB_IMAGE}:latest"
+              echo "${DOCKERHUB_IMAGE}:${{ steps.version.outputs.tag }}"
+            fi
+            echo 'TAGS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # Une seule construction pour les deux registres. Les deux étapes
+      # précédentes produisaient deux images distinctes : couches
+      # identiques grâce au cache, mais chacune portait un label `url`
+      # différent, donc une config différente, donc un digest différent.
+      # `docker pull` sur GHCR et sur Docker Hub ne rendait pas la même
+      # image, ce qui vide de son sens l'épinglage par digest que le
+      # README recommande.
+      #
+      # Conséquence assumée : `org.opencontainers.image.url` ne peut plus
+      # désigner un registre en particulier. Il pointe donc vers le dépôt,
+      # seule adresse valable pour les deux.
+      - name: Build and push multi-arch
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile-multi-arch
           platforms: linux/amd64,linux/arm64
           push: true
+          # Le SBOM permet d'auditer les paquets sans reconstruire
+          # l'image — ce qui compte sur une base qui ne reçoit plus de
+          # correctifs publics. La provenance était déjà produite par
+          # défaut ; `mode=max` y ajoute étapes de build et sources.
+          sbom: true
+          provenance: mode=max
           build-args: |
             BUILD_DATE=${{ steps.version.outputs.build_date }}
             REPO_URL=https://github.com/${{ github.repository }}
@@ -95,41 +288,56 @@ jobs:
             DESCRIPTION=Image Ubuntu 18.04 légère, durcie et multi-architecture
             VERSION=18.04
             LICENSES=MIT
-          tags: |
-            samtechlab/ubuntu-18.04-bionic:latest
-            samtechlab/ubuntu-18.04-bionic:${{ steps.version.outputs.tag }}
+          tags: ${{ steps.tags.outputs.list }}
+          # Pas de guillemets autour des valeurs : chaque ligne est passée
+          # telle quelle à `--label`, et buildx découpe au premier `=` sans
+          # rien retirer. Des guillemets ici se retrouvent dans la valeur
+          # publiée.
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.vendor="Sam Tech Lab"
-            org.opencontainers.image.url="https://hub.docker.com/r/samtechlab/ubuntu-18.04-bionic"
+            org.opencontainers.image.vendor=Sam Tech Lab
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
 
-      - name: Build and push multi-arch to GHCR
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./Dockerfile-multi-arch
-          platforms: linux/amd64,linux/arm64
-          push: true
-          build-args: |
-            BUILD_DATE=${{ steps.version.outputs.build_date }}
-            REPO_URL=https://github.com/${{ github.repository }}
-            AUTHORS=Sam Tech Lab
-            TITLE=Ubuntu 18.04 (Bionic) Base
-            DESCRIPTION=Image Ubuntu 18.04 légère, durcie et multi-architecture
-            VERSION=18.04
-            LICENSES=MIT
-          tags: |
-            ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:latest
-            ghcr.io/sam-tech-lab-git/ubuntu-18.04-bionic:${{ steps.version.outputs.tag }}
-          labels: |
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.vendor="Sam Tech Lab"
-            org.opencontainers.image.url="https://ghcr.io/${{ github.repository_owner }}/ubuntu-18.04-bionic"
+      # Vérifie que ce qui vient d'être publié couvre bien les deux
+      # architectures, et que tous les registres servent le même digest —
+      # la propriété que la fusion ci-dessus rétablit. Le digest est
+      # recalculé depuis le manifeste brut plutôt que lu via `--format`,
+      # qui irait chercher le blob de config sans raison.
+      - name: Le manifeste publié couvre les deux architectures
+        run: |
+          REF_DIGEST=""
+          for IMG in $(echo "${{ steps.tags.outputs.list }}" | grep ':latest$'); do
+            RAW=$(docker buildx imagetools inspect --raw "${IMG}")
+            ARCHES=$(echo "${RAW}" | jq -r '[.manifests[].platform.architecture] | unique | join(" ")')
+            DIGEST="sha256:$(printf '%s' "${RAW}" | sha256sum | cut -d' ' -f1)"
+            echo "${IMG}"
+            echo "  architectures : ${ARCHES}"
+            echo "  digest        : ${DIGEST}"
+            for WANT in amd64 arm64; do
+              if ! echo "${ARCHES}" | tr ' ' '\n' | grep -qx "${WANT}"; then
+                echo "::error::${IMG} ne contient pas d'image ${WANT}."
+                exit 1
+              fi
+            done
+            if [ -z "${REF_DIGEST}" ]; then
+              REF_DIGEST="${DIGEST}"
+            elif [ "${DIGEST}" != "${REF_DIGEST}" ]; then
+              echo "::error::Les registres ne servent pas le même digest (${REF_DIGEST} vs ${DIGEST})."
+              exit 1
+            fi
+          done
+          echo "Tous les registres servent ${REF_DIGEST}."
 
-      - name: Sync README to Docker Hub
-        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: samtechlab/ubuntu-18.04-bionic
-          readme-filepath: ./README.md
+      # Les guillemets dans un bloc `labels:` ne sont pas des délimiteurs :
+      # ils finissent dans la valeur publiée. Le défaut est silencieux — il
+      # ne se voit qu'en inspectant l'image — d'où cette vérification.
+      - name: Les labels OCI ne portent pas de guillemets parasites
+        run: |
+          docker pull -q "${GHCR_IMAGE}:latest"
+          LABELS=$(docker image inspect --format '{{json .Config.Labels}}' "${GHCR_IMAGE}:latest")
+          echo "${LABELS}" | jq .
+          if echo "${LABELS}" | jq -e 'to_entries[] | select(.value | test("^\"|\"$"))' >/dev/null; then
+            echo "::error::Au moins un label est publié avec des guillemets littéraux ; retirez-les du bloc labels:."
+            exit 1
+          fi
+          echo "Aucun label encadré de guillemets."
