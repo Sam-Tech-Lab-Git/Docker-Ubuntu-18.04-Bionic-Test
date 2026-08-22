@@ -80,7 +80,7 @@ If you discover a security issue in this repository, please **do not open a publ
 
 Use GitHub private vulnerability reporting instead:
 
-1. Open the repository **[Security tab](https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic/security)**
+1. Open the repository **[Security tab](https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic-Test/security)**
 2. Click **Report a vulnerability**
 3. Provide:
    - a clear description
@@ -180,7 +180,7 @@ un avertissement au lieu d'échouer.
 Merci de **ne pas ouvrir d’issue publique**.
 
 Utilisez le signalement privé GitHub :
-1. ouvrir l’onglet **[Security](https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic/security)**
+1. ouvrir l’onglet **[Security](https://github.com/Sam-Tech-Lab-Git/Docker-Ubuntu-18.04-Bionic-Test/security)**
 2. cliquer sur **Report a vulnerability**
 3. décrire le problème, les étapes de reproduction et l’impact
 
